@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const redisClient = require("../config/redis");
 
 const Insert = async(req,res)=>{
     try{
@@ -29,12 +30,26 @@ const Search = async(req,res)=>{
             });
         }
 
+        const cacheKey = `search:${q}`;
+        const cachedUsers = await redisClient.get(cacheKey);
+        if(cachedUsers){
+            console.log("Cache Hit");
+            return res.json(JSON.parse(cachedUsers));
+        }
+        console.log("Cache Miss");
+
         const users = await User.find({
             username: {
                 $regex: "^" + q,
                 $options: "i"
             }
         }).sort({followers: -1}).limit(10);
+        
+        await redisClient.setEx(
+            cacheKey,
+            60,
+            JSON.stringify(users)
+        );
 
         res.json(users);    
     }
