@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const redisClient = require("../config/redis");
+const elasticClient = require("../config/elasticsearch");
 
 const Insert = async(req,res)=>{
     try{
@@ -11,6 +12,13 @@ const Insert = async(req,res)=>{
         const user = await User.create({
             username,
             followers
+        });
+        await elasticClient.index({
+            index: "users",
+            document: {
+                username: user.username,
+                followers: user.followers
+            }
         });
 
         res.json(user);
@@ -38,13 +46,53 @@ const Search = async(req,res)=>{
         }
         console.log("Cache Miss");
 
-        const users = await User.find({
+       /*  const users = await User.find({
             username: {
                 $regex: "^" + q,
                 $options: "i"
             }
-        }).sort({followers: -1}).limit(10);
-        
+        }).sort({followers: -1}).limit(10); */
+
+        const result = await elasticClient.search({
+            index: "users",
+            /* query:{
+                match:{
+                    username:q
+                }
+            } */
+           query: {
+                bool: {
+                    should: [
+                        {
+                            match_phrase_prefix: {
+                                username: q
+                            }
+                        },
+                        {
+                            fuzzy: {
+                                username: {
+                                    value: q,
+                                    fuzziness: "AUTO"
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+           sort: [
+                {
+                    followers: {
+                        order: "desc"
+                    }
+                }
+            ]
+        });
+
+        const users = result.hits.hits.map(
+            item => item._source
+        );
+
+
         await redisClient.setEx(
             cacheKey,
             60,
