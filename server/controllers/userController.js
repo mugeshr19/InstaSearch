@@ -27,13 +27,13 @@ const Insert = async(req,res)=>{
         await producer.send({
             topic: "user-events",
 
-            message:[
+            messages:[
                 {
                     partition,
 
-                    value: JSON.stringfy({
+                    value: JSON.stringify({
                         type: "USER_CREATED",
-                        playload:{
+                        payload:{
                             username: user.username,
                             followers: user.followers
                         }
@@ -45,7 +45,12 @@ const Insert = async(req,res)=>{
         res.json(user);
     }
     catch(err){
-        res.status(500).json({error: "Failed to create user"});
+
+        console.error(err);
+
+        res.status(500).json({
+            error: "Failed to create user"
+        });
     }
 };
 

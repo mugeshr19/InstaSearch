@@ -20,5 +20,6 @@ const getPartition = (username) => {
 
 module.exports = {
     producer,
-    connectProducer
+    connectProducer,
+    getPartition
 };
