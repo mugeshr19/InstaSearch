@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const redisClient = require("../config/redis");
 const elasticClient = require("../config/elasticsearch");
+const {producer,getPartition} = require("../kafka/producer");
 
 const Insert = async(req,res)=>{
     try{
@@ -13,12 +14,32 @@ const Insert = async(req,res)=>{
             username,
             followers
         });
-        await elasticClient.index({
+        const partition = getPartition(user.username);
+
+        /*await elasticClient.index({
             index: "users",
             document: {
                 username: user.username,
                 followers: user.followers
             }
+        });*/
+
+        await producer.send({
+            topic: "user-events",
+
+            message:[
+                {
+                    partition,
+
+                    value: JSON.stringfy({
+                        type: "USER_CREATED",
+                        playload:{
+                            username: user.username,
+                            followers: user.followers
+                        }
+                    })
+                }
+            ]
         });
 
         res.json(user);
